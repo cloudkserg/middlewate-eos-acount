@@ -1,0 +1,205 @@
+h1. Scheme of work for eos account creation:
+
+h1. In config:
+{code}
+my_mongo_info
+my_rabbit_info
+address of exchange api for currency_rate
+address of signing_service
+address of oauth_service
+blockchains:
+bitcoin:
+mongo_info,
+maxBlockCount - number_of_blocks_for_window_and_confirmations,
+rabbit_info
+{code}
+
+
+h1. Events
+
+h2. EosAddressEvent
+{code}`
+    claimId,
+    eosAddress: address,
+{code}`
+
+h2. EosAddressErrorEvent
+{code}`
+    claimId,
+    reason
+{code}`
+
+
+h2. AmountFinishEvent
+{code}
+    claimId,
+    blockchain,
+    address,
+    amount,
+    limit,
+    startBlock,
+    endBlock,
+{code}`
+
+h3. AmountTimeoutErrorEvent
+{code}
+    claimId,
+    blockchain,
+    address,
+    amount,
+    limit,
+    startBlock,
+    lastBlock
+{code}
+
+h1. Models:
+
+h2. Account
+{code}
+   id,
+   blockchain - index
+   address - unique, index
+   claimId - unique, index
+{code}`
+
+h2. Claim
+{code}
+   id
+   accountId - index,
+   address - string,
+   blockchain - string,
+   status (0 - created,  1 - succes, 2 - error)
+   result = {}
+   eospublickey
+   amount -  int
+   requiredAmount - int
+   startBlock - int
+   lastBlock - int
+{code}
+h1. Algorythm
+
+h2. 0) On start
+{code}
+check that signing_service up
+check that oauth_service up
+subscribe on blockprocessor 'block.*' for blockchains(from config)
+{code}
+
+h2. 1) Client service with user token(with userId) send POST to middleware
+{code}
+POST /:blockchain
+Headers: Authentication: userToken
+Body: empty
+{code}
+
+h2. 2) Middleware on this request
+h3. Get avail account from mongo
+{code}
+account = accounts.findAndUpdate({
+     blockchain = :blockchain,
+     status = 0
+}, {status = 1})
+{code}
+
+h3. get requiredAmount from currency_rates (through mongo or reload)
+{code}
+requiredAmount = exhange.getCurrencyRate(:blockchain, 'eos')
+{code}
+h3. getLastBlock from blockchain
+{code}
+lastBlock = mongo.blocks.sort(-1).limit(1).number
+{code}
+
+h3. createClaim in mongo
+{code}
+claim = {
+   userId = token.userId,
+   accountId: acount.id,
+   address: account.address,
+   blockchain: account.blockchain,
+   startBlock = lastBlock,
+   lastBlock = lastBlock,
+   maxBlockCount = config[:blockchain].maxBlockCount,
+   requiredAmount,
+   amount = 0,
+   created = now(),
+  status = 0,
+  result = {}
+)
+{code}
+h3. return response
+{code}
+Response: {
+    address: account.address,
+    maxBlockCount: claim.maxBlockCount,
+    startBlock: claim.startBlock,
+    requiredAmount,
+    claimId: claim.id
+}
+{code}
+
+h2. 3) On every block event from block processor through rabbitmq
+
+h3.  get all not closed claims
+{code}
+claims = claims.find({
+    status: 0,
+    blockchain: blockchainName
+})
+{code}
+
+h3. get all transactions for this addresses and this block
+{code}
+abstract!!! for every blockchain this other
+transactions = mongo.getTransactions({
+     recipient: claims.map('address'),
+     block: block.number,
+})
+{code}
+
+h3. update amount and status in all claims through bulkOps in mongo
+{code}
+ops = _.(claims).map(
+   claim => {
+        lastBlock: block.number,
+       amount: transactions.map(recipient).find(claim.address) ? updateAmount(tx, claim) : claim.amount
+   }).map(
+    op => {
+        status: isMoreThanMaxBlock(claim) ? updateStatus(claim) : claim.status
+   })
+mongo.bulkOps(ops);
+{code}
+
+h3. send events where amount > requiredAmount
+{code}
+claims.map(claim.amount >= claim.requiredAmount).send(SuccessEvent(claim))
+{code}
+
+h3. send events where lastBlock - startBlock > maxBlock
+{code}
+claims.map(claim.status === 1).send(SuccessEvent(claim))
+claims.map(claim.status === 2).send(TimeoutErrorEvent(claim))
+{code}
+
+
+h1. Additional Operations
+
+h2. updateAmount(tx, claim)
+{code}
+   if (claim.lastBlock <= tx.blockNumber)
+       return claim.amount + tx.amount
+  else
+      return amountFromTxs(tx.blockchain, claim.address)
+{code}
+
+h2. isMoreThanMaxBlock(claim)
+{code}
+   return claim.lastBlock - claim.startBlock >= claim.maxBlock
+{code}
+
+h2. updateStatus(claim)
+{code}
+   return claim.amount >= claim.requiredAmount ? 1 : 2
+{code}
+
+

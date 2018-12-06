@@ -1,0 +1,48 @@
+{
+  "name": "middleware_eos_account",
+  "version": "1.0.0",
+  "main": "index.js",
+  "requirements": {},
+  "dependencies": {
+    "bignumber.js": "^8.0.1",
+    "bluebird": "^3.5.2",
+    "bunyan": "^1.8.12",
+    "dotenv": "^4.0.0",
+    "eosjs": "^20.0.0-beta2",
+    "eth-ecies": "^1.0.3",
+    "express": "^4.16.3",
+    "helmet": "^3.13.0",
+    "joi": "^13.6.0",
+    "lodash": "^4.17.10",
+    "middleware_auth_lib": "^1.0.0",
+    "middleware_common_infrastructure": "github:ChronoBank/middleware-common-infrastructure.git",
+    "mongoose": "^5.2.9",
+    "mongoose-ttl": "0.0.3",
+    "node-fetch": "^2.3.0",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2",
+    "require-all": "^3.0.0",
+    "text-encoding": "^0.7.0",
+    "web3": "^1.0.0-beta.36"
+  },
+  "scripts": {
+    "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
+    "test": "node ./node_modules/mocha/bin/mocha -t 90000 tests"
+  },
+  "author": "chronobank",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/ChronoBank/middleware-eos-account/issues"
+  },
+  "homepage": "https://github.com/ChronoBank/middleware-eos-account#readme",
+  "description": "Middleware eos account creation service",
+  "devDependencies": {
+    "babel-eslint": "^8.2.6",
+    "bzmq": "^0.1.0",
+    "chai": "^4.1.1",
+    "eslint": "^4.19.1",
+    "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
+    "memwatch-next": "^0.3.0",
+    "mocha": "^3.5.0"
+  }
+}
